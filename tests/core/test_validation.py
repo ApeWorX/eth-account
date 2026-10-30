@@ -28,6 +28,7 @@ TEST_PRIVATE_KEY = b"\0" * 31 + b"\x01"
         (dict(GOOD_TXN, to=None), {}),
         (dict(GOOD_TXN, to=b""), {}),
         (dict(GOOD_TXN, to="0x" + "00" * 20), {}),
+        (dict(GOOD_TXN, to="0x0d8ce2a99bb6e3b7db580ed848240e4a0f9ae153"), {}),
         (dict(GOOD_TXN, to="0xF0109fC8DF283027b6285cc889F5aA624EaC1F55"), {}),
         (dict(GOOD_TXN, to="0xf0109Fc8df283027B6285CC889f5Aa624eAc1f55"), {"to"}),
         (dict(GOOD_TXN, to="0x" + "00" * 19), {"to"}),

@@ -1,0 +1,3 @@
+Allowed normalized lowercase ``to`` addresses during transaction signing,
+including addresses with a leading zero nibble that were previously rejected
+as invalid transaction fields.

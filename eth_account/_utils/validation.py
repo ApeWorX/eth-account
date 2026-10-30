@@ -12,6 +12,7 @@ from eth_utils import (
     is_checksum_address,
     is_dict,
     is_hexstr,
+    is_normalized_address,
 )
 from eth_utils.curried import (
     apply_one_of_formatters,
@@ -58,6 +59,17 @@ def is_empty_or_checksum_address(val: Any) -> bool:
         return True
     else:
         return is_valid_address(val)
+
+
+def is_empty_or_any_address(val: Any) -> bool:
+    if val in VALID_EMPTY_ADDRESSES:
+        return True
+    else:
+        return (
+            is_binary_address(val)
+            or is_checksum_address(val)
+            or is_normalized_address(val)
+        )
 
 
 def is_rpc_structured_access_list(val: Any) -> bool:
@@ -222,7 +234,7 @@ LEGACY_TRANSACTION_VALID_VALUES = {
     "nonce": is_int_or_prefixed_hexstr,
     "gasPrice": is_int_or_prefixed_hexstr,
     "gas": is_int_or_prefixed_hexstr,
-    "to": is_empty_or_checksum_address,
+    "to": is_empty_or_any_address,
     "value": is_int_or_prefixed_hexstr,
     "data": lambda val: isinstance(val, (int, str, bytes, bytearray)),
     "chainId": lambda val: val is None or is_int_or_prefixed_hexstr(val),
