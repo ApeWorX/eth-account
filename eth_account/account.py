@@ -921,7 +921,7 @@ class Account(AccountLocalActions):
         hb_key = HexBytes(key)
 
         try:
-            return self._keys.PrivateKey(hb_key)
+            return self._keys.PrivateKey(hb_key, self._keys.backend)
         except ValidationError as original_exception:
             raise ValueError(
                 "The private key must be exactly 32 bytes long, instead of "

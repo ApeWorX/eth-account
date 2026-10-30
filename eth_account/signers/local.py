@@ -107,7 +107,7 @@ class LocalAccount(BaseAccount):
             SignedMessage,
             self._publicapi.unsafe_sign_hash(
                 message_hash,
-                private_key=self.key,
+                private_key=self._key_obj,
             ),
         )
 
@@ -121,7 +121,7 @@ class LocalAccount(BaseAccount):
         """
         return cast(
             SignedMessage,
-            self._publicapi.sign_message(signable_message, private_key=self.key),
+            self._publicapi.sign_message(signable_message, private_key=self._key_obj),
         )
 
     def sign_transaction(
@@ -129,7 +129,9 @@ class LocalAccount(BaseAccount):
     ) -> SignedTransaction:
         return cast(
             SignedTransaction,
-            self._publicapi.sign_transaction(transaction_dict, self.key, blobs=blobs),
+            self._publicapi.sign_transaction(
+                transaction_dict, self._key_obj, blobs=blobs
+            ),
         )
 
     def sign_typed_data(
@@ -149,7 +151,7 @@ class LocalAccount(BaseAccount):
         return cast(
             SignedMessage,
             self._publicapi.sign_typed_data(
-                private_key=self.key,
+                private_key=self._key_obj,
                 domain_data=domain_data,
                 message_types=message_types,
                 message_data=message_data,
@@ -160,5 +162,7 @@ class LocalAccount(BaseAccount):
     def sign_authorization(self, authorization: dict[str, Any]) -> SignedMessage:
         return cast(
             SignedMessage,
-            self._publicapi.sign_authorization(authorization, private_key=self.key),
+            self._publicapi.sign_authorization(
+                authorization, private_key=self._key_obj
+            ),
         )

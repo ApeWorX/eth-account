@@ -7,6 +7,9 @@ from eth_keyfile.keyfile import (
 from eth_keys import (
     keys,
 )
+from eth_keys.backends import (
+    NativeECCBackend,
+)
 from eth_utils import (
     is_checksum_address,
     to_bytes,
@@ -168,6 +171,18 @@ PRIVATE_KEY_AS_INT_ALT = (
 )
 PRIVATE_KEY_AS_OBJ_ALT = keys.PrivateKey(PRIVATE_KEY_AS_BYTES_ALT)
 ACCT_ADDRESS_ALT = "0xafd7f0E16A1814B854b45f551AFD493BE5F039F9"
+
+
+class TrackingBackend(NativeECCBackend):
+    sign_calls = 0
+
+    def ecdsa_sign(self, msg_hash, private_key):
+        type(self).sign_calls += 1
+        return super().ecdsa_sign(msg_hash, private_key)
+
+    @classmethod
+    def reset(cls):
+        cls.sign_calls = 0
 
 
 @pytest.fixture(
@@ -697,6 +712,29 @@ def test_eth_account_sign_transaction_from_eth_test(acct, transaction):
     # confirm that signed transaction can be recovered to the sender
     expected_sender = acct.from_key(key).address
     assert acct.recover_transaction(signed.raw_transaction) == expected_sender
+
+
+def test_set_key_backend_applies_to_sign_transaction_with_raw_private_key():
+    TrackingBackend.reset()
+    account_api = Account()
+    account_api.set_key_backend(TrackingBackend())
+    transaction = dissoc(ETH_TEST_TRANSACTIONS[0], "key", "signed", "unsigned")
+
+    account_api.sign_transaction(transaction, PRIVATE_KEY_AS_BYTES)
+
+    assert TrackingBackend.sign_calls == 1
+
+
+def test_local_account_sign_transaction_preserves_private_key_backend():
+    TrackingBackend.reset()
+    account = Account().from_key(
+        keys.PrivateKey(PRIVATE_KEY_AS_BYTES, TrackingBackend())
+    )
+    transaction = dissoc(ETH_TEST_TRANSACTIONS[0], "key", "signed", "unsigned")
+
+    account.sign_transaction(transaction)
+
+    assert TrackingBackend.sign_calls == 1
 
 
 @pytest.mark.parametrize(

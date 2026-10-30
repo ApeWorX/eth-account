@@ -1,0 +1,2 @@
+Fixed ``Account.set_key_backend()`` so raw-key signing and ``LocalAccount``
+signing both preserve the configured ``eth-keys`` backend.
