@@ -1,0 +1,1 @@
+Reject BIP32 path indexes equal to or above ``2**31``, which serialized as the harden bit.

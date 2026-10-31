@@ -1,7 +1,13 @@
 import pytest
 
+from eth_utils import (
+    ValidationError,
+)
+
 from eth_account.hdaccount.deterministic import (
+    HardNode,
     HDPath,
+    SoftNode,
 )
 
 
@@ -97,3 +103,23 @@ from eth_account.hdaccount.deterministic import (
 )
 def test_bip32_testvectors(seed, path, key):
     assert HDPath(path).derive(bytes.fromhex(seed)).hex() == key
+
+
+def test_reject_index_equal_to_harden_bit():
+    with pytest.raises(ValidationError):
+        SoftNode(2**31)
+    with pytest.raises(ValidationError):
+        HardNode(2**31)
+    with pytest.raises(ValidationError, match="not valid"):
+        HDPath("m/2147483648")
+    with pytest.raises(ValidationError, match="not valid"):
+        HDPath("m/2147483648'")
+    with pytest.raises(ValidationError, match="not valid"):
+        HDPath("m/44'/60'/0'/0/2147483648")
+
+
+def test_accept_max_valid_bip32_index():
+    assert int(SoftNode(2**31 - 1)) == 2**31 - 1
+    assert int(HardNode(2**31 - 1)) == 2**31 - 1 + 0x80000000
+    assert HDPath("m/2147483647").encode() == "m/2147483647"
+    assert HDPath("m/2147483647H").encode() == "m/2147483647H"

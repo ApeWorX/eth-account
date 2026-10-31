@@ -75,7 +75,7 @@ class Node(int):
     index: int
 
     def __new__(cls, index: int) -> "Node":
-        if 0 > index or index > 2**31:
+        if 0 > index or index >= 2**31:
             raise ValidationError(f"{cls} cannot be initialized with value {index}")
 
         obj = int.__new__(cls, index + cls.OFFSET)
