@@ -228,6 +228,7 @@ class BlobTransaction(_TypedTransactionImplementation):
                     strict=False,
                 )
             )
+            dictionary = transaction_rlp_to_rpc_structure(dictionary)
             dictionary["type"] = cls.transaction_type
         else:
             dictionary = set_transaction_type_if_needed(dictionary)

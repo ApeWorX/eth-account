@@ -10,6 +10,7 @@ from eth_utils import (
 from hexbytes import (
     HexBytes,
 )
+import rlp
 from toolz import (
     merge,
 )
@@ -317,3 +318,76 @@ def test_signed_tx_bytes_match_go_eth_kzg(test_name, blob_hex, expected_tx_hex):
     signed_tx = TEST_ACCT.sign_transaction(BLOB_TX_DICT, blobs=[blob_bytes])
     go_tx_bytes = to_bytes(hexstr=expected_tx_hex)
     assert signed_tx.raw_transaction == HexBytes(go_tx_bytes)
+
+
+@pytest.mark.parametrize(
+    "access_list",
+    (
+        [],
+        [{"address": BLOB_TX_DICT["to"], "storageKeys": []}],
+        [
+            {"address": BLOB_TX_DICT["to"], "storageKeys": [0, 1, 2**256 - 1]},
+            {"address": TEST_ACCT.address, "storageKeys": [1, 1]},
+        ],
+    ),
+    ids=["empty", "address-only", "multiple-addresses-and-keys"],
+)
+@pytest.mark.parametrize(
+    "sidecar_path",
+    [None, SIGNED_TX_PATH, ZERO_BLOB_EIP7594_SIGNED_PATH],
+    ids=["body-only", "eip4844", "eip7594"],
+)
+def test_deserialize_blob_transaction_with_access_list(access_list, sidecar_path):
+    signed = TEST_ACCT.sign_transaction(
+        {
+            **BLOB_TX_DICT,
+            "accessList": access_list,
+            "blobVersionedHashes": [ZERO_BLOB_VERSIONED_HASH],
+        }
+    )
+    body = BlobTransaction.from_bytes(signed.raw_transaction)
+    encoded = signed.raw_transaction
+    if sidecar_path is not None:
+        # Reuse the valid zero-blob sidecar without regenerating its KZG proofs.
+        # The access list changes the signed body, not the blob commitment.
+        with open(sidecar_path) as sidecar_file:
+            wrapper = rlp.decode(HexBytes(sidecar_file.read().strip())[1:])
+        wrapper[0] = rlp.decode(signed.raw_transaction[1:])
+        encoded = HexBytes(b"\x03" + rlp.encode(wrapper))
+
+    decoded = BlobTransaction.from_bytes(encoded)
+    assert decoded.as_dict() == body.as_dict()
+    assert decoded.hash() == body.hash()
+    assert decoded.vrs() == body.vrs()
+    assert Account.recover_transaction(encoded) == TEST_ACCT.address
+    if sidecar_path is None:
+        assert decoded.blob_data is None
+    else:
+        assert decoded.blob_data.blobs[0].as_hexstr() == ZERO_BLOB
+        assert (
+            decoded.blob_data.versioned_hashes[0].as_hexstr()
+            == ZERO_BLOB_VERSIONED_HASH
+        )
+
+
+@pytest.mark.parametrize(
+    "sidecar_path", [SIGNED_TX_PATH, ZERO_BLOB_EIP7594_SIGNED_PATH]
+)
+@pytest.mark.parametrize(
+    "invalid_access_list",
+    [
+        [[b"\x11" * 19, []]],
+        [[b"\x11" * 20, [b"\x00" * 31]]],
+        [[b"\x11" * 20]],
+    ],
+    ids=["short-address", "short-storage-key", "missing-storage-keys"],
+)
+def test_deserialize_blob_transaction_rejects_invalid_access_list(
+    sidecar_path, invalid_access_list
+):
+    with open(sidecar_path) as sidecar_file:
+        wrapper = rlp.decode(HexBytes(sidecar_file.read().strip())[1:])
+    wrapper[0][8] = invalid_access_list
+    encoded = HexBytes(b"\x03" + rlp.encode(wrapper))
+    with pytest.raises(rlp.exceptions.ObjectDeserializationError):
+        BlobTransaction.from_bytes(encoded)
