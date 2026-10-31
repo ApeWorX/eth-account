@@ -1,5 +1,6 @@
 import pytest
 import os
+import re
 
 from eth_keyfile.keyfile import (
     get_default_work_factor_for_kdf,
@@ -270,6 +271,30 @@ def test_eth_account_from_key_seed_restrictions(acct):
         acct.from_key(b"\xff" * 31)
     with pytest.raises(ValueError):
         acct.from_key(b"\xff" * 33)
+
+
+@pytest.mark.parametrize(
+    "private_key,expected_message",
+    (
+        (
+            "0x1234567812345678123456781234567812345678",
+            "The private key must be a hex string representing exactly 32 bytes, "
+            "but the provided hex string represents 20 bytes.",
+        ),
+        (
+            "0xxyz",
+            "The private key must be a valid hex string representing exactly "
+            "32 bytes.",
+        ),
+        (
+            b"\xff" * 31,
+            "The private key must be exactly 32 bytes long, instead of 31 bytes.",
+        ),
+    ),
+)
+def test_eth_account_from_key_error_messages(acct, private_key, expected_message):
+    with pytest.raises(ValueError, match=re.escape(expected_message)):
+        acct.from_key(private_key)
 
 
 def test_eth_account_from_key_properties(acct, PRIVATE_KEY):

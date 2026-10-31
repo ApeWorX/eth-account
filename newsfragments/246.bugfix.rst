@@ -1,0 +1,2 @@
+Improved ``Account.from_key()`` error messages for invalid hex private keys and
+hex strings that do not represent exactly 32 bytes.
