@@ -37,6 +37,7 @@ from eth_account._utils.transaction_utils import (
 )
 from eth_account._utils.validation import (
     LEGACY_TRANSACTION_VALID_VALUES,
+    VALID_EMPTY_ADDRESSES,
     is_int_or_prefixed_hexstr,
     is_rpc_structured_access_list,
     is_rpc_structured_authorization_list,
@@ -158,6 +159,14 @@ class SetCodeTransaction(_TypedTransactionImplementation):
                 "authorizationList": is_rpc_structured_authorization_list,
             },
         )
+
+        if dictionary.get("to") in VALID_EMPTY_ADDRESSES:
+            # EIP-7702 has no contract creation form, so a set code transaction
+            # cannot be sent with a null destination.
+            raise TypeError(
+                "SetCodeTransaction requires a `to` address; EIP-7702 does not "
+                "have a contract creation form."
+            )
 
         if "v" in dictionary and dictionary["v"] == 0:
             # This is insane logic that is required because the way we evaluate

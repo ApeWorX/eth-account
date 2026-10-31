@@ -542,3 +542,39 @@ def test_decode_encode(test_case):
     # Re-encode.
     encoded = actual.encode()
     assert HexBytes(encoded) == HexBytes(raw_transaction)
+
+
+SET_CODE_TRANSACTION_WITHOUT_TO = {
+    "type": 4,
+    "chainId": 7072151312,
+    "nonce": 18,
+    "maxPriorityFeePerGas": 3999999993,
+    "maxFeePerGas": 4000000007,
+    "gas": 100000,
+    "value": 0,
+    "data": "0x",
+    "accessList": [],
+    "authorizationList": [
+        {
+            "chainId": 7072151312,
+            "address": "0x3e6c95d880401e4e36ee62f4ebded346e1adf42d",
+            "nonce": 2,
+            "yParity": 1,
+            "r": "0x31f464e6a607fc66e0f982a2d21498799b0571760a272f3d903aca6594cef595",  # noqa: E501
+            "s": "0x343b0b143924a5db42a3200ae72d5c6dd03633847bc2da025cff5214e28708ec",  # noqa: E501
+        }
+    ],
+}
+
+
+@pytest.mark.parametrize("empty_to", (None, b"", ""))
+def test_set_code_transaction_rejects_empty_to(empty_to):
+    # EIP-7702 has no contract creation form, so a null destination is invalid
+    transaction = dict(SET_CODE_TRANSACTION_WITHOUT_TO, to=empty_to)
+    with pytest.raises(TypeError, match="requires a `to` address"):
+        TypedTransaction.from_dict(transaction)
+
+
+def test_set_code_transaction_rejects_missing_to():
+    with pytest.raises(TypeError, match="requires a `to` address"):
+        TypedTransaction.from_dict(SET_CODE_TRANSACTION_WITHOUT_TO)
