@@ -6,7 +6,11 @@ from eth_keys.datatypes import (
 from hexbytes import (
     HexBytes,
 )
+import rlp
 
+from eth_account import (
+    Account,
+)
 from eth_account.datastructures import (
     SignedSetCodeAuthorization,
 )
@@ -542,3 +546,28 @@ def test_decode_encode(test_case):
     # Re-encode.
     encoded = actual.encode()
     assert HexBytes(encoded) == HexBytes(raw_transaction)
+
+
+def _replace_y_parity(raw_transaction, y_parity):
+    # Typed transactions end with [..., y_parity, r, s].
+    raw = HexBytes(raw_transaction)
+    fields = rlp.decode(raw[1:])
+    fields[-3] = rlp.sedes.big_endian_int.serialize(y_parity)
+    return HexBytes(raw[:1] + rlp.encode(fields))
+
+
+@pytest.mark.parametrize("y_parity", [2, 27, 28, 37, 38])
+@pytest.mark.parametrize("test_case", TEST_CASES, ids=TEST_CASE_IDS)
+def test_from_bytes_rejects_non_y_parity_v(test_case, y_parity):
+    raw_transaction = _replace_y_parity(test_case["expected_raw_transaction"], y_parity)
+    with pytest.raises(ValueError, match="y-parity"):
+        TypedTransaction.from_bytes(raw_transaction)
+    with pytest.raises(ValueError, match="y-parity"):
+        Account.recover_transaction(raw_transaction)
+
+
+@pytest.mark.parametrize("test_case", TEST_CASES, ids=TEST_CASE_IDS)
+def test_from_bytes_accepts_y_parity_round_trip(test_case):
+    raw_transaction = HexBytes(test_case["expected_raw_transaction"])
+    y_parity = TypedTransaction.from_bytes(raw_transaction).vrs()[0]
+    assert _replace_y_parity(raw_transaction, y_parity) == raw_transaction

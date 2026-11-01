@@ -135,6 +135,18 @@ class TypedTransaction:
             raise TypeError(
                 f"typed transaction has unknown type: {encoded_transaction[0]}"
             )
+
+        # EIP-2718 typed transactions carry the signature y-parity (0 or 1),
+        # not a legacy ``v`` (27/28) or an EIP-155 ``v`` (35+). Accepting those
+        # would let several byte strings with different transaction hashes
+        # recover to the same signer, none of which a node accepts.
+        y_parity = transaction.vrs()[0]
+        if y_parity not in (0, 1):
+            raise ValueError(
+                f"Invalid signature y-parity for typed transaction: {y_parity}. "
+                "Expected 0 or 1."
+            )
+
         return cls(
             transaction_type=transaction_type,
             transaction=transaction,
