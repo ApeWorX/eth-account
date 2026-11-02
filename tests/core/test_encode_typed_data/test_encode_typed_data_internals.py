@@ -1267,3 +1267,20 @@ def test_encode_data_pass_and_hash_struct_and_hash_eip712_message(
 def test_encode_data_fail(type_, message, types, expected_error):
     with pytest.raises(**expected_error):
         encode_data(type_, types, message)
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ([], False),
+        ([0], True),
+        ({}, False),
+        ({"enabled": 0}, True),
+        (set(), False),
+        ({0}, True),
+        (bytearray(), False),
+        (bytearray(b"\x00"), True),
+    ],
+)
+def test_encode_field_bool_with_unhashable_value(value, expected):
+    assert encode_field({}, "enabled", "bool", value) == ("bool", expected)

@@ -81,7 +81,7 @@ def encode_field(
         return ("bytes32", keccak(encode(data_types, data_hashes)))
 
     elif type_ == "bool":
-        falsy_values = {"False", "false", "0"}
+        falsy_values = ("False", "false", "0")
         return (type_, False) if not value or value in falsy_values else (type_, True)
 
     # all bytes types allow hexstr and str values
