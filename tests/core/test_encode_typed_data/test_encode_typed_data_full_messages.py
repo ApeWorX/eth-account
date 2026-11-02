@@ -50,3 +50,23 @@ def test_messages_that_are_only_invalid_for_one_arg_encoding(message):
     with pytest.raises(ValidationError):
         encode_typed_data(full_message=one_arg_invalid[message])
     encode_typed_data(*convert_to_3_arg(one_arg_invalid[message]))
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ([], False),
+        ([0], True),
+        ({}, False),
+        ({"enabled": 0}, True),
+        (set(), False),
+        ({0}, True),
+        (bytearray(), False),
+        (bytearray(b"\x00"), True),
+    ],
+)
+def test_encode_typed_data_bool_with_unhashable_value(value, expected):
+    message_types = {"Message": [{"name": "enabled", "type": "bool"}]}
+    assert encode_typed_data(
+        {}, message_types, {"enabled": value}
+    ) == encode_typed_data({}, message_types, {"enabled": expected})
