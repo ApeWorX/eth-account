@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import (
     Any,
 )
@@ -178,7 +179,12 @@ def encode_type(type_: str, types: dict[str, list[dict[str, str]]]) -> str:
 
 
 def hash_type(type_: str, types: dict[str, list[dict[str, str]]]) -> bytes:
-    return bytes(keccak(text=encode_type(type_, types)))
+    return _hash_encoded_type(encode_type(type_, types))
+
+
+@lru_cache(maxsize=128)
+def _hash_encoded_type(encoded_type: str) -> bytes:
+    return bytes(keccak(text=encoded_type))
 
 
 def encode_data(
