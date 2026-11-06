@@ -37,6 +37,7 @@ from eth_account._utils.transaction_utils import (
 )
 from eth_account._utils.validation import (
     LEGACY_TRANSACTION_VALID_VALUES,
+    VALID_EMPTY_ADDRESSES,
     is_int_or_prefixed_hexstr,
     is_rpc_structured_access_list,
     is_sequence_of_bytes_or_hexstr,
@@ -187,6 +188,14 @@ class BlobTransaction(_TypedTransactionImplementation):
                 "maxFeePerBlobGas": is_int_or_prefixed_hexstr,
             },
         )
+        if dictionary.get("to") in VALID_EMPTY_ADDRESSES:
+            # EIP-4844 has no contract creation form: `to` must be a 20-byte
+            # address, so a blob transaction cannot have a null destination.
+            raise TypeError(
+                "BlobTransaction requires a `to` address; EIP-4844 does not "
+                "have a contract creation form."
+            )
+
         if not has_blobs:
             transaction_valid_values["blobVersionedHashes"] = (
                 is_sequence_of_bytes_or_hexstr(item_bytes_size=32, can_be_empty=False)
