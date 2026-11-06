@@ -11,6 +11,8 @@ from hexbytes import (
     HexBytes,
 )
 from toolz import (
+    assoc,
+    dissoc,
     merge,
 )
 
@@ -19,6 +21,7 @@ from eth_account import (
 )
 from eth_account.typed_transactions import (
     BlobTransaction,
+    TypedTransaction,
 )
 
 TEST_DATA_PATH = os.path.join(os.path.dirname(__file__), "_test_data")
@@ -317,3 +320,58 @@ def test_signed_tx_bytes_match_go_eth_kzg(test_name, blob_hex, expected_tx_hex):
     signed_tx = TEST_ACCT.sign_transaction(BLOB_TX_DICT, blobs=[blob_bytes])
     go_tx_bytes = to_bytes(hexstr=expected_tx_hex)
     assert signed_tx.raw_transaction == HexBytes(go_tx_bytes)
+
+
+BLOB_TX_DICT_WITHOUT_TO = dissoc(
+    merge(
+        BLOB_TX_DICT,
+        {"type": 3, "blobVersionedHashes": [ZERO_BLOB_VERSIONED_HASH]},
+    ),
+    "to",
+)
+
+# BLOB_TX_DICT_WITHOUT_TO signed by TEST_ACCT with an empty `to` field (0x80),
+# as produced before blob transactions rejected a null destination.
+SIGNED_BLOB_TX_WITH_EMPTY_TO = (
+    "0x03f87c0101328203e8830186a080018852fdfc072182654fc064e1a0010657f37554c781402a"
+    "22917dee2f75def7ab966d7b770905398eba3c44401480a023e94ce35557ef62888ce786c6a0d0"
+    "96aef8098dc61d1432d143f24b5800dd14a018a68f1adc546625e3eb24bfc0a03005d0910139861"
+    "ed59bbf8832f8dcbd1618"
+)
+
+
+@pytest.mark.parametrize(
+    "empty_to", (None, b"", ""), ids=("None", "empty-bytes", "empty-str")
+)
+def test_blob_transaction_rejects_empty_to(empty_to):
+    # EIP-4844 has no contract creation form, so a null destination is invalid
+    tx_dict = assoc(BLOB_TX_DICT_WITHOUT_TO, "to", empty_to)
+    with pytest.raises(TypeError, match="requires a `to` address"):
+        BlobTransaction.from_dict(tx_dict)
+    with pytest.raises(TypeError, match="requires a `to` address"):
+        TEST_ACCT.sign_transaction(tx_dict)
+
+
+def test_blob_transaction_rejects_missing_to():
+    with pytest.raises(TypeError, match="requires a `to` address"):
+        BlobTransaction.from_dict(BLOB_TX_DICT_WITHOUT_TO)
+    with pytest.raises(TypeError, match="requires a `to` address"):
+        TEST_ACCT.sign_transaction(BLOB_TX_DICT_WITHOUT_TO)
+    with pytest.raises(TypeError, match="requires a `to` address"):
+        TEST_ACCT.sign_transaction(BLOB_TX_DICT_WITHOUT_TO, blobs=[ZERO_BLOB])
+
+
+def test_blob_transaction_with_empty_to_is_rejected_when_decoding():
+    raw = HexBytes(SIGNED_BLOB_TX_WITH_EMPTY_TO)
+    with pytest.raises(TypeError, match="requires a `to` address"):
+        TypedTransaction.from_bytes(raw)
+    with pytest.raises(TypeError, match="requires a `to` address"):
+        Account.recover_transaction(raw)
+
+
+def test_blob_transaction_with_to_still_signs_and_decodes():
+    tx_dict = assoc(
+        BLOB_TX_DICT_WITHOUT_TO, "to", "0x45Ae5777c9b35Eb16280e423b0d7c91C06C66B58"
+    )
+    signed = TEST_ACCT.sign_transaction(tx_dict)
+    assert Account.recover_transaction(signed.raw_transaction) == TEST_ACCT.address
