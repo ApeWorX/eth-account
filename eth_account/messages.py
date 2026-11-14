@@ -392,6 +392,9 @@ def encode_typed_data(
 
         full_message_types = full_message["types"].copy()
         full_message_domain = full_message["domain"].copy()
+        # The domain is hashed with the provided EIP712Domain fields, if any, so that
+        # their order and types are respected, as in eth_signTypedData_v4
+        full_message_domain_types = full_message_types.get("EIP712Domain")
 
         # If EIP712Domain types were provided, check that they match the domain data
         if "EIP712Domain" in full_message_types:
@@ -423,16 +426,18 @@ def encode_typed_data(
                 )
 
         parsed_domain_data = full_message_domain
+        parsed_domain_types = full_message_domain_types
         parsed_message_types = full_message_types
         parsed_message_data = full_message["message"]
 
     else:
         parsed_domain_data = domain_data
+        parsed_domain_types = None
         parsed_message_types = message_types
         parsed_message_data = message_data
 
     return SignableMessage(
         HexBytes(b"\x01"),
-        hash_domain(parsed_domain_data),
+        hash_domain(parsed_domain_data, parsed_domain_types),
         hash_eip712_message(parsed_message_types, parsed_message_data),
     )
