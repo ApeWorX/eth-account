@@ -217,7 +217,16 @@ def hash_eip712_message(
     return bytes(keccak(encode_data(primary_type, message_types, message_data)))
 
 
-def hash_domain(domain_data: dict[str, Any]) -> bytes:
+def hash_domain(
+    domain_data: dict[str, Any],
+    domain_types: list[dict[str, str]] | None = None,
+) -> bytes:
+    """
+    Hash the domain data. If ``domain_types`` (the ``EIP712Domain`` fields) are
+    given, they are used as is, in the given order and with the given types.
+    Otherwise, the fields are derived from the keys of ``domain_data``, in the order
+    defined by EIP-712.
+    """
     eip712_domain_map = {
         "name": {"name": "name", "type": "string"},
         "version": {"name": "version", "type": "string"},
@@ -230,10 +239,9 @@ def hash_domain(domain_data: dict[str, Any]) -> bytes:
         if k not in eip712_domain_map.keys():
             raise ValueError(f"Invalid domain key: `{k}`")
 
-    domain_types = {
-        "EIP712Domain": [
+    if domain_types is None:
+        domain_types = [
             eip712_domain_map[k] for k in eip712_domain_map.keys() if k in domain_data
         ]
-    }
 
-    return hash_struct("EIP712Domain", domain_types, domain_data)
+    return hash_struct("EIP712Domain", {"EIP712Domain": domain_types}, domain_data)
