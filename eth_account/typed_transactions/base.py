@@ -290,6 +290,10 @@ class _TypedTransactionImplementation(ABC):
         pass
 
     @abstractmethod
+    def encode_unsigned(self) -> bytes:
+        pass
+
+    @abstractmethod
     def payload(self) -> bytes:
         pass
 
