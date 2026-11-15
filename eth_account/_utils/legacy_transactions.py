@@ -60,9 +60,25 @@ class Transaction(HashableRLP):
         ("s", big_endian_int),
     )
 
+    def encode_unsigned(self) -> bytes:
+        """
+        Returns the RLP encoding of this transaction, i.e. the pre-image
+        bytes whose keccak hash is signed. When the transaction is in its
+        chain-aware unsigned form (see EIP-155, where ``v`` holds the chain
+        ID and ``r``/``s`` are 0), this is exactly the signing payload.
+        """
+        return cast(bytes, rlp.encode(self))
+
 
 class UnsignedTransaction(HashableRLP):
     fields = UNSIGNED_TRANSACTION_FIELDS
+
+    def encode_unsigned(self) -> bytes:
+        """
+        Returns the unsigned encoding of this transaction, i.e. the RLP
+        encoding whose keccak hash is signed.
+        """
+        return cast(bytes, rlp.encode(self))
 
 
 def serializable_unsigned_transaction_from_dict(

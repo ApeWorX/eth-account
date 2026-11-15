@@ -151,6 +151,18 @@ class TypedTransaction:
         """
         return self.transaction.hash()
 
+    def encode_unsigned(self) -> bytes:
+        """
+        Returns the unsigned encoding of this TypedTransaction, i.e. the
+        pre-image bytes that are hashed to prepare it for signing.
+
+        As per the EIP-2718 specifications,
+        the encoding format is dictated by the transaction type itself,
+        and so we delegate the call.
+        Note that the return type will be bytes.
+        """
+        return self.transaction.encode_unsigned()
+
     def encode(self) -> bytes:
         """
         Encodes this TypedTransaction and returns it as bytes.

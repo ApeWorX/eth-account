@@ -235,12 +235,12 @@ class SetCodeTransaction(_TypedTransactionImplementation):
         dictionary["type"] = self.__class__.transaction_type
         return dictionary
 
-    def hash(self) -> bytes:
+    def encode_unsigned(self) -> bytes:
         """
-        Hashes this SetCodeTransaction to prepare it for signing.
-        As per the EIP-7702 specifications, the signature is a secp256k1 signature over
-        ``keccak256(0x04 || rlp([chainId, nonce, max_priority_fee_per_gas,
-        max_fee_per_gas, gasLimit, to, value, data, accessList, authorizationList])).``
+        Returns the unsigned encoding of this SetCodeTransaction, i.e. the
+        pre-image bytes that are hashed to prepare it for signing:
+        ``0x04 || rlp([chainId, nonce, maxPriorityFeePerGas, maxFeePerGas,
+        gasLimit, to, value, data, accessList, authorizationList])``
         """
         # Remove signature fields.
         transaction_without_signature_fields = dissoc(self.dictionary, "v", "r", "s")
@@ -249,15 +249,23 @@ class SetCodeTransaction(_TypedTransactionImplementation):
             transaction_without_signature_fields
         )
         rlp_serializer = self.__class__._unsigned_transaction_serializer
-        hash_ = pipe(
+        encoded = pipe(
             rlp_serializer.from_dict(rlp_structured_txn_without_sig_fields),  # type: ignore  # noqa: E501
             lambda val: rlp.encode(val),  # rlp([...])
             lambda val: (
                 bytes([self.__class__.transaction_type]) + val
-            ),  # (0x04 || rlp([...]))  # noqa: E501
-            keccak,  # keccak256(0x04 || rlp([...]))
+            ),  # (0x04 || rlp([...]))
         )
-        return cast(bytes, hash_)
+        return cast(bytes, encoded)
+
+    def hash(self) -> bytes:
+        """
+        Hashes this SetCodeTransaction to prepare it for signing.
+        As per the EIP-7702 specifications, the signature is a secp256k1 signature over
+        ``keccak256(0x04 || rlp([chainId, nonce, max_priority_fee_per_gas,
+        max_fee_per_gas, gasLimit, to, value, data, accessList, authorizationList])).``
+        """
+        return keccak(self.encode_unsigned())
 
     def payload(self) -> bytes:
         """

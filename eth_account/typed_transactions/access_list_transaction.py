@@ -201,12 +201,12 @@ class AccessListTransaction(_TypedTransactionImplementation):
         dictionary["type"] = self.__class__.transaction_type
         return dictionary
 
-    def hash(self) -> bytes:
+    def encode_unsigned(self) -> bytes:
         """
-        Hashes this AccessListTransaction to prepare it for signing.
-        As per the EIP-2930 specifications, the signature is a secp256k1 signature over
-        ``keccak256(0x01 || rlp([chainId, nonce, gasPrice, gasLimit,
-        to, value, data, accessList])).``
+        Returns the unsigned encoding of this AccessListTransaction, i.e. the
+        pre-image bytes that are hashed to prepare it for signing:
+        ``0x01 || rlp([chainId, nonce, gasPrice, gasLimit, to, value, data,
+        accessList])``
         """
         # Remove signature fields.
         transaction_without_signature_fields = dissoc(self.dictionary, "v", "r", "s")
@@ -215,15 +215,23 @@ class AccessListTransaction(_TypedTransactionImplementation):
             transaction_without_signature_fields
         )
         rlp_serializer = self.__class__._unsigned_transaction_serializer
-        hash = pipe(
+        encoded = pipe(
             rlp_serializer.from_dict(rlp_structured_txn_without_sig_fields),  # type: ignore  # noqa: E501
             lambda val: rlp.encode(val),  # rlp([...])
             lambda val: (
                 bytes([self.__class__.transaction_type]) + val
             ),  # (0x01 || rlp([...]))
-            keccak,  # keccak256(0x01 || rlp([...]))
         )
-        return cast(bytes, hash)
+        return cast(bytes, encoded)
+
+    def hash(self) -> bytes:
+        """
+        Hashes this AccessListTransaction to prepare it for signing.
+        As per the EIP-2930 specifications, the signature is a secp256k1 signature over
+        ``keccak256(0x01 || rlp([chainId, nonce, gasPrice, gasLimit,
+        to, value, data, accessList])).``
+        """
+        return keccak(self.encode_unsigned())
 
     def payload(self) -> bytes:
         """

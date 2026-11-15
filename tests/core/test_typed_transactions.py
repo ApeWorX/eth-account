@@ -3,10 +3,17 @@ import pytest
 from eth_keys.datatypes import (
     Signature,
 )
+from eth_utils import (
+    keccak,
+)
 from hexbytes import (
     HexBytes,
 )
+import rlp
 
+from eth_account._utils.legacy_transactions import (
+    serializable_unsigned_transaction_from_dict,
+)
 from eth_account.datastructures import (
     SignedSetCodeAuthorization,
 )
@@ -520,6 +527,88 @@ def test_hash(test_case):
     hash_ = transaction.hash()
     actual = HexBytes(hash_).to_0x_hex()
     assert actual == expected
+
+
+@pytest.mark.parametrize("test_case", TEST_CASES, ids=TEST_CASE_IDS)
+def test_encode_unsigned(test_case):
+    transaction = TypedTransaction.from_dict(test_case["transaction"])
+    encoded = transaction.encode_unsigned()
+    assert isinstance(encoded, bytes)
+    # The encoding is prefixed with the transaction type byte.
+    assert encoded[0] == transaction.transaction_type
+    # The unsigned encoding is the pre-image of the transaction hash.
+    assert keccak(encoded) == transaction.hash()
+    assert HexBytes(keccak(encoded)).to_0x_hex() == test_case["expected_hash"]
+
+
+def test_encode_unsigned_dynamic_fee_issue_example():
+    # The example unsigned encoding from issue #325.
+    expected = HexBytes(
+        "0x02f843827a698080808094000000000000000000000000000000000000000080a4"
+        "c8c57ba6eb886a56f9f0efa64432678cebf1270e9314a758e6eb697a606202a451e3e82ec0"
+    )
+    # Decode the RLP payload to recover the transaction fields.
+    (
+        chain_id,
+        nonce,
+        max_priority_fee_per_gas,
+        max_fee_per_gas,
+        gas,
+        to,
+        value,
+        data,
+        access_list,
+    ) = rlp.decode(bytes(expected[1:]))
+    transaction = DynamicFeeTransaction.from_dict(
+        {
+            "type": DynamicFeeTransaction.transaction_type,
+            "chainId": int.from_bytes(chain_id, "big"),
+            "nonce": int.from_bytes(nonce, "big"),
+            "maxPriorityFeePerGas": int.from_bytes(max_priority_fee_per_gas, "big"),
+            "maxFeePerGas": int.from_bytes(max_fee_per_gas, "big"),
+            "gas": int.from_bytes(gas, "big"),
+            "to": to,
+            "value": int.from_bytes(value, "big"),
+            "data": data,
+            "accessList": access_list,
+        }
+    )
+    assert transaction.encode_unsigned() == bytes(expected)
+    assert keccak(transaction.encode_unsigned()) == transaction.hash()
+
+
+@pytest.mark.parametrize(
+    "transaction_dict",
+    (
+        # EIP-155 chain-aware legacy transaction (chainId folded into ``v``).
+        {
+            "nonce": 9,
+            "gasPrice": 20000000000,
+            "gas": 21000,
+            "to": "0x3535353535353535353535353535353535353535",
+            "value": 1000000000000000000,
+            "data": b"",
+            "chainId": 1,
+        },
+        # Chain-naive legacy transaction (replayable across networks).
+        {
+            "nonce": 9,
+            "gasPrice": 20000000000,
+            "gas": 21000,
+            "to": "0x3535353535353535353535353535353535353535",
+            "value": 1000000000000000000,
+            "data": b"",
+        },
+    ),
+    ids=("legacy-chain-aware", "legacy-chain-naive"),
+)
+def test_legacy_encode_unsigned(transaction_dict):
+    unsigned_transaction = serializable_unsigned_transaction_from_dict(transaction_dict)
+    encoded = unsigned_transaction.encode_unsigned()
+    assert isinstance(encoded, bytes)
+    # The unsigned encoding is the pre-image of the transaction hash.
+    assert keccak(encoded) == unsigned_transaction.hash()
+    assert encoded == rlp.encode(unsigned_transaction)
 
 
 @pytest.mark.parametrize("test_case", TEST_CASES, ids=TEST_CASE_IDS)
